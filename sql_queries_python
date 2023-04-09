@@ -1,0 +1,106 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sqlalchemy import create_engine
+import psycopg2
+
+db_config = {
+    'user': 'praktikum_student', # имя пользователя
+    'pwd': '---', # пароль
+    'host': '---',
+    'port': ---, # порт подключения
+    'db': '---' # название базы данных
+}
+
+connection_string = 'postgresql://{}:{}@{}:{}/{}'.format(
+    db_config['user'],
+    db_config['pwd'],
+    db_config['host'],
+    db_config['port'],
+    db_config['db'],
+)
+
+engine = create_engine(connection_string) 
+
+query = '''
+WITH profile AS
+  (SELECT user_id,
+          dt,
+          COUNT(*) OVER (PARTITION BY dt) AS cohort_users_cnt
+   FROM online_store.profiles
+   WHERE channel = 'Organic'),
+sessions AS 
+(SELECT user_id,
+        session_start::date AS session_date
+FROM online_store.sessions
+GROUP BY 1,
+         2)
+SELECT p.dt AS cohort_dt,
+       session_date,
+       COUNT(p.user_id) AS users_cnt,
+       cohort_users_cnt,
+       ROUND(COUNT(p.user_id) * 100.0 / cohort_users_cnt, 2) AS retention_rate
+FROM profile p
+JOIN sessions s ON p.user_id = s.user_id
+GROUP BY 1,
+         2,
+         4
+'''
+
+retention_rate_df = pd.read_sql_query(query, con = engine)
+print(retention_rate_df.head()) 
+
+# создаём сводную таблицу с результатами
+retention = retention_rate_df.pivot('cohort_dt', 'session_date', 'retention_rate')
+retention.index = [str(x)[0:10] for x in retention.index]
+retention.columns = [str(x)[0:10] for x in retention.columns]
+
+# строим хитмэп
+plt.figure(figsize=(16, 16)) # задаём размер графика
+sns.heatmap(retention, # датафрейм с данными
+            annot=True, # добавляем подписи
+            fmt='') # задаём исходный формат
+plt.title('Тепловая карта') # название графика
+plt.show()  
+
+query2 = '''
+WITH profile AS
+  (SELECT u.user_id,
+          DATE_TRUNC('month', MIN(event_time))::date AS start_mn
+   FROM tools_shop.users u
+   JOIN tools_shop.orders o ON u.user_id = o.user_id
+   JOIN tools_shop.events e ON u.user_id = e.user_id
+   GROUP BY 1), 
+sessions AS
+  (SELECT start_mn,
+          DATE_TRUNC('month', event_time)::date AS event_mn,
+          COUNT(DISTINCT p.user_id) AS users_cnt
+   FROM profile p
+   JOIN tools_shop.events e ON p.user_id = e.user_id
+   GROUP BY 1,
+            2)
+SELECT start_mn,
+       event_mn,
+       users_cnt,
+       LAG(users_cnt) OVER (PARTITION BY start_mn ORDER BY event_mn) AS previous_day_users_cnt,
+       ROUND((1 - (users_cnt::numeric / LAG(users_cnt) OVER (PARTITION BY start_mn ORDER BY event_mn))) * 100, 2) AS churn_rate
+FROM sessions
+WHERE start_mn BETWEEN '2018-01-01' AND '2018-06-01'
+  AND event_mn BETWEEN '2018-01-01' AND '2018-12-01';
+'''
+
+churn_rate_df = pd.read_sql_query(query2, con = engine)
+print(churn_rate_df.head()) 
+
+# создаём сводную таблицу с результатами
+churn = churn_rate_df.pivot('start_mn', 'event_mn', 'churn_rate')
+churn.index = [str(x)[0:10] for x in churn.index]
+churn.columns = [str(x)[0:10] for x in churn.columns]
+
+# строим хитмэп
+plt.figure(figsize=(16, 16)) # задаём размер графика
+sns.heatmap(churn, # датафрейм с данными
+            annot=True, # добавляем подписи
+            fmt='') # задаём исходный формат
+plt.title('Тепловая карта') # название графика
+plt.show()
