@@ -1,3 +1,4 @@
+'''python
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -104,3 +105,4 @@ sns.heatmap(churn, # датафрейм с данными
             fmt='') # задаём исходный формат
 plt.title('Тепловая карта') # название графика
 plt.show()
+'''
