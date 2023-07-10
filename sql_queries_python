@@ -5,11 +5,11 @@ from sqlalchemy import create_engine
 import psycopg2
 
 db_config = {
-    'user': 'praktikum_student', # имя пользователя
-    'pwd': '---', # пароль
-    'host': '---',
-    'port': ---, # порт подключения
-    'db': '---' # название базы данных
+    'user': 'praktikum_student', # user name
+    'pwd': '---', # password
+    'host': '---', # host
+    'port': ---, # port
+    'db': '---' # db name
 }
 
 connection_string = 'postgresql://{}:{}@{}:{}/{}'.format(
@@ -50,12 +50,10 @@ GROUP BY 1,
 retention_rate_df = pd.read_sql_query(query, con = engine)
 print(retention_rate_df.head()) 
 
-# создаём сводную таблицу с результатами
 retention = retention_rate_df.pivot('cohort_dt', 'session_date', 'retention_rate')
 retention.index = [str(x)[0:10] for x in retention.index]
 retention.columns = [str(x)[0:10] for x in retention.columns]
 
-# строим хитмэп
 plt.figure(figsize=(16, 16)) # задаём размер графика
 sns.heatmap(retention, # датафрейм с данными
             annot=True, # добавляем подписи
@@ -92,12 +90,10 @@ WHERE start_mn BETWEEN '2018-01-01' AND '2018-06-01'
 churn_rate_df = pd.read_sql_query(query2, con = engine)
 print(churn_rate_df.head()) 
 
-# создаём сводную таблицу с результатами
 churn = churn_rate_df.pivot('start_mn', 'event_mn', 'churn_rate')
 churn.index = [str(x)[0:10] for x in churn.index]
 churn.columns = [str(x)[0:10] for x in churn.columns]
 
-# строим хитмэп
 plt.figure(figsize=(16, 16)) # задаём размер графика
 sns.heatmap(churn, # датафрейм с данными
             annot=True, # добавляем подписи
